@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case Tracker</title>
+    <style>
+        :root {
+            --primary: #6b21a8;
+            --primary-light: #8b5cf6;
+            --secondary: #34d399;
+            --dark: #111827;
+            --darker: #0f172a;
+            --light: #e2e8f0;
+            --lighter: #f8fafc;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--darker);
+            color: var(--light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--dark);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 0.8rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-title {
+            font-size: 1rem;
+            opacity: 0.7;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .progress-section {
+            margin: 2rem 0;
+        }
+        
+        .progress-container {
+            height: 30px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 1rem;
+            position: relative;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 15px;
+            transition: width 0.6s ease;
+        }
+        
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+            color: white;
+            mix-blend-mode: difference;
+        }
+        
+        .input-section {
+            margin: 2rem 0;
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 0.8rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        input {
+            flex: 1;
+            padding: 0.8rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--light);
+            font-size: 1rem;
+        }
+        
+        button {
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .schedule-section {
+            margin-top: 2rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 0.8rem;
+        }
+        
+        .schedule-title {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+        
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+        
+        .time-slot {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            border-left: 3px solid var(--primary-light);
+        }
+        
+        .time-slot p:first-child {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .footer {
+            margin-top: 2rem;
+            text-align: center;
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.5rem;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Case Progress Tracker</h1>
+        
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-title">Cases Completed</div>
+                <div class="stat-value" id="completed-cases">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Cases Remaining</div>
+                <div class="stat-value" id="remaining-cases">500</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Cases Per Hour</div>
+                <div class="stat-value" id="cases-per-hour">96.7</div>
+            </div>
+        </div>
+        
+        <div class="progress-section">
+            <h2>Overall Progress</h2>
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+                <div class="progress-text" id="progress-text">0%</div>
+            </div>
+        </div>
+        
+        <div class="input-section">
+            <label for="completed">Update Completed Cases:</label>
+            <div class="input-group">
+                <input type="number" id="completed" placeholder="Enter number of completed cases" min="0" max="500">
+                <button id="update-btn">Update</button>
+            </div>
+        </div>
+        
+        <div class="schedule-section">
+            <h2 class="schedule-title">Your Working Hours</h2>
+            <div class="schedule-grid">
+                <div class="time-slot">
+                    <p>Morning Shift</p>
+                    <p>10:00 AM - 12:40 PM</p>
+                    <p>Cases to complete: <span id="morning-cases">254</span></p>
+                </div>
+                <div class="time-slot">
+                    <p>Afternoon Shift 1</p>
+                    <p>1:50 PM - 3:00 PM</p>
+                    <p>Cases to complete: <span id="afternoon1-cases">113</span></p>
+                </div>
+                <div class="time-slot">
+                    <p>Afternoon Shift 2</p>
+                    <p>3:20 PM - 4:40 PM</p>
+                    <p>Cases to complete: <span id="afternoon2-cases">133</span></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            Stay focused and track your productivity!
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const TOTAL_CASES = 500;
+        const TOTAL_HOURS = 5.17; // 5 hours and 10 minutes
+        
+        // Time distribution (in hours)
+        const MORNING_HOURS = 2.67; // 2h 40m
+        const AFTERNOON1_HOURS = 1.17; // 1h 10m
+        const AFTERNOON2_HOURS = 1.33; // 1h 20m
+        
+        // DOM Elements
+        const completedCasesEl = document.getElementById('completed-cases');
+        const remainingCasesEl = document.getElementById('remaining-cases');
+        const casesPerHourEl = document.getElementById('cases-per-hour');
+        const progressBarEl = document.getElementById('progress-bar');
+        const progressTextEl = document.getElementById('progress-text');
+        const inputEl = document.getElementById('completed');
+        const updateBtn = document.getElementById('update-btn');
+        const morningCasesEl = document.getElementById('morning-cases');
+        const afternoon1CasesEl = document.getElementById('afternoon1-cases');
+        const afternoon2CasesEl = document.getElementById('afternoon2-cases');
+        
+        // Initial calculation
+        calculateDistribution();
+        
+        // Event Listeners
+        updateBtn.addEventListener('click', updateProgress);
+        inputEl.addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                updateProgress();
+            }
+        });
+        
+        function updateProgress() {
+            const completedCases = parseInt(inputEl.value) || 0;
+            
+            if (completedCases < 0 || completedCases > TOTAL_CASES) {
+                alert("Please enter a valid number between 0 and " + TOTAL_CASES);
+                return;
+            }
+            
+            const remainingCases = TOTAL_CASES - completedCases;
+            const progressPercentage = (completedCases / TOTAL_CASES) * 100;
+            
+            // Update the stats
+            completedCasesEl.textContent = completedCases;
+            remainingCasesEl.textContent = remainingCases;
+            
+            // Only recalculate cases per hour if there are remaining cases
+            if (remainingCases > 0) {
+                casesPerHourEl.textContent = (remainingCases / TOTAL_HOURS).toFixed(1);
+                calculateDistribution(remainingCases);
+            } else {
+                casesPerHourEl.textContent = "0.0";
+                morningCasesEl.textContent = "0";
+                afternoon1CasesEl.textContent = "0";
+                afternoon2CasesEl.textContent = "0";
+            }
+            
+            // Update progress bar
+            progressBarEl.style.width = progressPercentage + "%";
+            progressTextEl.textContent = progressPercentage.toFixed(1) + "%";
+            
+            // Visual feedback for complete
+            if (completedCases >= TOTAL_CASES) {
+                progressBarEl.style.background = "linear-gradient(90deg, #22c55e, #34d399)";
+                document.querySelector(".container").style.boxShadow = "0 10px 25px rgba(52, 211, 153, 0.3)";
+            } else {
+                progressBarEl.style.background = "linear-gradient(90deg, var(--primary), var(--secondary))";
+                document.querySelector(".container").style.boxShadow = "0 10px 25px rgba(0, 0, 0, 0.5)";
+            }
+        }
+        
+        function calculateDistribution(remainingCases = TOTAL_CASES) {
+            const caseRate = remainingCases / TOTAL_HOURS;
+            
+            const morningCases = Math.ceil(caseRate * MORNING_HOURS);
+            const afternoon1Cases = Math.ceil(caseRate * AFTERNOON1_HOURS);
+            const afternoon2Cases = Math.ceil(caseRate * AFTERNOON2_HOURS);
+            
+            morningCasesEl.textContent = morningCases;
+            afternoon1CasesEl.textContent = afternoon1Cases;
+            afternoon2CasesEl.textContent = afternoon2Cases;
+        }
+    </script>
+</body>
+</html>
