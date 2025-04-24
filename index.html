@@ -130,6 +130,7 @@
             display: flex;
             align-items: center;
             gap: 1rem;
+            margin-bottom: 1rem;
         }
         
         input {
@@ -157,6 +158,12 @@
             opacity: 0.9;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .clock {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
         }
         
         .schedule-section {
@@ -190,6 +197,29 @@
             margin-bottom: 0.5rem;
         }
         
+        .time-status {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            display: inline-block;
+        }
+        
+        .active {
+            background-color: rgba(52, 211, 153, 0.2);
+            color: #34d399;
+        }
+        
+        .inactive {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .upcoming {
+            background-color: rgba(139, 92, 246, 0.2);
+            color: #8b5cf6;
+        }
+        
         .footer {
             margin-top: 2rem;
             text-align: center;
@@ -212,6 +242,8 @@
     <div class="container">
         <h1>Case Progress Tracker</h1>
         
+        <div class="clock" id="current-time">Current Time: Loading...</div>
+        
         <div class="stats-container">
             <div class="stat-card">
                 <div class="stat-title">Cases Completed</div>
@@ -222,7 +254,7 @@
                 <div class="stat-value" id="remaining-cases">500</div>
             </div>
             <div class="stat-card">
-                <div class="stat-title">Cases Per Hour</div>
+                <div class="stat-title">Cases Per Hour Needed</div>
                 <div class="stat-value" id="cases-per-hour">96.7</div>
             </div>
         </div>
@@ -241,25 +273,32 @@
                 <input type="number" id="completed" placeholder="Enter number of completed cases" min="0" max="500">
                 <button id="update-btn">Update</button>
             </div>
+            <div class="input-group">
+                <button id="set-time-btn">Use Current Time</button>
+                <button id="reset-time-btn">Reset Time</button>
+            </div>
         </div>
         
         <div class="schedule-section">
             <h2 class="schedule-title">Your Working Hours</h2>
             <div class="schedule-grid">
-                <div class="time-slot">
+                <div class="time-slot" id="slot-morning">
                     <p>Morning Shift</p>
                     <p>10:00 AM - 12:40 PM</p>
                     <p>Cases to complete: <span id="morning-cases">254</span></p>
+                    <div class="time-status inactive" id="morning-status">Not Active</div>
                 </div>
-                <div class="time-slot">
+                <div class="time-slot" id="slot-afternoon1">
                     <p>Afternoon Shift 1</p>
                     <p>1:50 PM - 3:00 PM</p>
                     <p>Cases to complete: <span id="afternoon1-cases">113</span></p>
+                    <div class="time-status inactive" id="afternoon1-status">Not Active</div>
                 </div>
-                <div class="time-slot">
+                <div class="time-slot" id="slot-afternoon2">
                     <p>Afternoon Shift 2</p>
                     <p>3:20 PM - 4:40 PM</p>
                     <p>Cases to complete: <span id="afternoon2-cases">133</span></p>
+                    <div class="time-status inactive" id="afternoon2-status">Not Active</div>
                 </div>
             </div>
         </div>
@@ -272,14 +311,19 @@
     <script>
         // Constants
         const TOTAL_CASES = 500;
-        const TOTAL_HOURS = 5.17; // 5 hours and 10 minutes
         
-        // Time distribution (in hours)
-        const MORNING_HOURS = 2.67; // 2h 40m
-        const AFTERNOON1_HOURS = 1.17; // 1h 10m
-        const AFTERNOON2_HOURS = 1.33; // 1h 20m
+        // Time slots in 24-hour format
+        const TIME_SLOTS = [
+            { name: "morning", start: { hour: 10, minute: 0 }, end: { hour: 12, minute: 40 }, hoursLength: 2.67 },
+            { name: "afternoon1", start: { hour: 13, minute: 50 }, end: { hour: 15, minute: 0 }, hoursLength: 1.17 },
+            { name: "afternoon2", start: { hour: 15, minute: 20 }, end: { hour: 16, minute: 40 }, hoursLength: 1.33 }
+        ];
+        
+        // Calculate total working hours
+        const TOTAL_HOURS = TIME_SLOTS.reduce((sum, slot) => sum + slot.hoursLength, 0);
         
         // DOM Elements
+        const currentTimeEl = document.getElementById('current-time');
         const completedCasesEl = document.getElementById('completed-cases');
         const remainingCasesEl = document.getElementById('remaining-cases');
         const casesPerHourEl = document.getElementById('cases-per-hour');
@@ -287,15 +331,36 @@
         const progressTextEl = document.getElementById('progress-text');
         const inputEl = document.getElementById('completed');
         const updateBtn = document.getElementById('update-btn');
-        const morningCasesEl = document.getElementById('morning-cases');
-        const afternoon1CasesEl = document.getElementById('afternoon1-cases');
-        const afternoon2CasesEl = document.getElementById('afternoon2-cases');
+        const setTimeBtn = document.getElementById('set-time-btn');
+        const resetTimeBtn = document.getElementById('reset-time-btn');
         
-        // Initial calculation
+        // Slot elements
+        const slotElements = {};
+        TIME_SLOTS.forEach(slot => {
+            slotElements[slot.name] = {
+                element: document.getElementById(`slot-${slot.name}`),
+                cases: document.getElementById(`${slot.name}-cases`),
+                status: document.getElementById(`${slot.name}-status`)
+            };
+        });
+        
+        // State
+        let currentCompletedCases = 0;
+        let customTime = null;
+        
+        // Initialize
+        updateClock();
         calculateDistribution();
+        updateTimeSlotStatuses();
+        
+        // Set up clock
+        setInterval(updateClock, 1000);
         
         // Event Listeners
         updateBtn.addEventListener('click', updateProgress);
+        setTimeBtn.addEventListener('click', useCurrentTime);
+        resetTimeBtn.addEventListener('click', resetTime);
+        
         inputEl.addEventListener('keyup', function(event) {
             if (event.key === 'Enter') {
                 updateProgress();
@@ -310,6 +375,7 @@
                 return;
             }
             
+            currentCompletedCases = completedCases;
             const remainingCases = TOTAL_CASES - completedCases;
             const progressPercentage = (completedCases / TOTAL_CASES) * 100;
             
@@ -317,16 +383,8 @@
             completedCasesEl.textContent = completedCases;
             remainingCasesEl.textContent = remainingCases;
             
-            // Only recalculate cases per hour if there are remaining cases
-            if (remainingCases > 0) {
-                casesPerHourEl.textContent = (remainingCases / TOTAL_HOURS).toFixed(1);
-                calculateDistribution(remainingCases);
-            } else {
-                casesPerHourEl.textContent = "0.0";
-                morningCasesEl.textContent = "0";
-                afternoon1CasesEl.textContent = "0";
-                afternoon2CasesEl.textContent = "0";
-            }
+            // Update cases per hour based on remaining time and cases
+            updateCasesPerHour();
             
             // Update progress bar
             progressBarEl.style.width = progressPercentage + "%";
@@ -342,16 +400,183 @@
             }
         }
         
+        function useCurrentTime() {
+            customTime = null;
+            updateClock();
+            updateCasesPerHour();
+            updateTimeSlotStatuses();
+        }
+        
+        function resetTime() {
+            // Set to beginning of work day
+            customTime = new Date();
+            customTime.setHours(9, 59, 0); // Just before first shift
+            updateClock();
+            updateCasesPerHour();
+            updateTimeSlotStatuses();
+        }
+        
+        function updateClock() {
+            const now = customTime || new Date();
+            const timeString = now.toLocaleTimeString();
+            currentTimeEl.textContent = `Current Time: ${timeString}`;
+            
+            // Also update cases per hour calculation if needed
+            updateCasesPerHour();
+            updateTimeSlotStatuses();
+        }
+        
+        function updateCasesPerHour() {
+            const now = customTime || new Date();
+            const remainingCases = TOTAL_CASES - currentCompletedCases;
+            
+            if (remainingCases <= 0) {
+                casesPerHourEl.textContent = "0.0";
+                TIME_SLOTS.forEach(slot => {
+                    slotElements[slot.name].cases.textContent = "0";
+                });
+                return;
+            }
+            
+            // Calculate remaining working hours
+            const remainingHours = calculateRemainingWorkHours(now);
+            
+            if (remainingHours <= 0) {
+                casesPerHourEl.textContent = "N/A";
+                calculateDistribution(remainingCases);
+                return;
+            }
+            
+            const caseRate = remainingCases / remainingHours;
+            casesPerHourEl.textContent = caseRate.toFixed(1);
+            
+            // Distribute cases to remaining time slots
+            distributeRemainingCases(now, remainingCases);
+        }
+        
+        function calculateRemainingWorkHours(now) {
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const currentTimeInMinutes = currentHour * 60 + currentMinute;
+            
+            let remainingMinutes = 0;
+            
+            for (const slot of TIME_SLOTS) {
+                const slotStartMinutes = slot.start.hour * 60 + slot.start.minute;
+                const slotEndMinutes = slot.end.hour * 60 + slot.end.minute;
+                
+                // If current time is before this slot ends
+                if (currentTimeInMinutes < slotEndMinutes) {
+                    // If current time is before this slot starts
+                    if (currentTimeInMinutes < slotStartMinutes) {
+                        remainingMinutes += (slotEndMinutes - slotStartMinutes);
+                    } else {
+                        // Current time is within this slot
+                        remainingMinutes += (slotEndMinutes - currentTimeInMinutes);
+                    }
+                }
+            }
+            
+            return remainingMinutes / 60; // Convert to hours
+        }
+        
+        function distributeRemainingCases(now, remainingCases) {
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const currentTimeInMinutes = currentHour * 60 + currentMinute;
+            
+            // Calculate remaining time in each slot
+            let totalRemainingMinutes = 0;
+            const slotRemainingMinutes = {};
+            
+            for (const slot of TIME_SLOTS) {
+                const slotStartMinutes = slot.start.hour * 60 + slot.start.minute;
+                const slotEndMinutes = slot.end.hour * 60 + slot.end.minute;
+                
+                let remainingInSlot = 0;
+                
+                // If current time is before this slot ends
+                if (currentTimeInMinutes < slotEndMinutes) {
+                    // If current time is before this slot starts
+                    if (currentTimeInMinutes < slotStartMinutes) {
+                        remainingInSlot = slotEndMinutes - slotStartMinutes;
+                    } else {
+                        // Current time is within this slot
+                        remainingInSlot = slotEndMinutes - currentTimeInMinutes;
+                    }
+                }
+                
+                slotRemainingMinutes[slot.name] = remainingInSlot;
+                totalRemainingMinutes += remainingInSlot;
+            }
+            
+            // Distribute cases based on remaining time in each slot
+            for (const slot of TIME_SLOTS) {
+                if (totalRemainingMinutes === 0) {
+                    slotElements[slot.name].cases.textContent = "0";
+                    continue;
+                }
+                
+                const proportion = slotRemainingMinutes[slot.name] / totalRemainingMinutes;
+                const casesForSlot = Math.ceil(remainingCases * proportion);
+                slotElements[slot.name].cases.textContent = casesForSlot.toString();
+            }
+        }
+        
         function calculateDistribution(remainingCases = TOTAL_CASES) {
             const caseRate = remainingCases / TOTAL_HOURS;
             
-            const morningCases = Math.ceil(caseRate * MORNING_HOURS);
-            const afternoon1Cases = Math.ceil(caseRate * AFTERNOON1_HOURS);
-            const afternoon2Cases = Math.ceil(caseRate * AFTERNOON2_HOURS);
+            TIME_SLOTS.forEach(slot => {
+                const slotCases = Math.ceil(caseRate * slot.hoursLength);
+                slotElements[slot.name].cases.textContent = slotCases.toString();
+            });
+        }
+        
+        function updateTimeSlotStatuses() {
+            const now = customTime || new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const currentTimeInMinutes = currentHour * 60 + currentMinute;
             
-            morningCasesEl.textContent = morningCases;
-            afternoon1CasesEl.textContent = afternoon1Cases;
-            afternoon2CasesEl.textContent = afternoon2Cases;
+            // Reset all statuses first
+            TIME_SLOTS.forEach(slot => {
+                slotElements[slot.name].status.textContent = "Not Active";
+                slotElements[slot.name].status.className = "time-status inactive";
+            });
+            
+            // Determine which slot is active or next
+            let foundActive = false;
+            let foundNext = false;
+            
+            for (const slot of TIME_SLOTS) {
+                const slotStartMinutes = slot.start.hour * 60 + slot.start.minute;
+                const slotEndMinutes = slot.end.hour * 60 + slot.end.minute;
+                
+                // If current time is within this slot
+                if (currentTimeInMinutes >= slotStartMinutes && currentTimeInMinutes < slotEndMinutes) {
+                    slotElements[slot.name].status.textContent = "ACTIVE NOW";
+                    slotElements[slot.name].status.className = "time-status active";
+                    slotElements[slot.name].element.style.borderLeft = "3px solid #34d399";
+                    foundActive = true;
+                } 
+                // If current time is before this slot and we haven't found the next slot yet
+                else if (currentTimeInMinutes < slotStartMinutes && !foundNext) {
+                    slotElements[slot.name].status.textContent = "Up Next";
+                    slotElements[slot.name].status.className = "time-status upcoming";
+                    slotElements[slot.name].element.style.borderLeft = "3px solid #8b5cf6";
+                    foundNext = true;
+                } 
+                // If current time is after this slot
+                else if (currentTimeInMinutes >= slotEndMinutes) {
+                    slotElements[slot.name].status.textContent = "Completed";
+                    slotElements[slot.name].element.style.borderLeft = "3px solid rgba(255, 255, 255, 0.2)";
+                } 
+                // Future slot but not next
+                else {
+                    slotElements[slot.name].status.textContent = "Upcoming";
+                    slotElements[slot.name].element.style.borderLeft = "3px solid var(--primary-light)";
+                }
+            }
         }
     </script>
 </body>
